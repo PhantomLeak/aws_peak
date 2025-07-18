@@ -1,0 +1,11 @@
+2025-07-18 10:40:53 INFO <test_go/main.go:1291> Starting AWS CloudWatch Monitor config=config.json rds_instances=2 log_groups=1 total_tabs=2
+2025-07-18 16:08:25 INFO <aws_dashboard/main.go:1291> Starting AWS CloudWatch Monitor config=config.json rds_instances=1 log_groups=1 total_tabs=2
+2025-07-18 16:08:39 INFO <aws_dashboard/main.go:1291> Starting AWS CloudWatch Monitor config=config.json rds_instances=1 log_groups=1 total_tabs=2
+2025-07-18 16:10:02 INFO <aws_dashboard/main.go:1291> Starting AWS CloudWatch Monitor config=config.json rds_instances=1 log_groups=1 total_tabs=2
+2025-07-18 16:11:05 INFO <aws_dashboard/main.go:1291> Starting AWS CloudWatch Monitor config=config.json rds_instances=1 log_groups=1 total_tabs=2
+2025-07-18 16:14:54 INFO <aws_dashboard/main.go:1291> Starting AWS CloudWatch Monitor config=config.json rds_instances=1 log_groups=1 total_tabs=2
+2025-07-18 16:15:15 INFO <aws_dashboard/main.go:1291> Starting AWS CloudWatch Monitor config=config.json rds_instances=1 log_groups=1 total_tabs=2
+2025-07-18 16:16:12 INFO <aws_dashboard/main.go:1291> Starting AWS CloudWatch Monitor config=config.json rds_instances=1 log_groups=1 total_tabs=2
+2025-07-18 16:18:04 INFO <aws_dashboard/main.go:1291> Starting AWS CloudWatch Monitor config=config.json rds_instances=1 log_groups=1 total_tabs=2
+2025-07-18 16:21:50 INFO <aws_dashboard/main.go:1413> Starting AWS CloudWatch Monitor config=config.json rds_instances=1 log_groups=1 total_tabs=2
+2025-07-18 16:22:11 INFO <aws_dashboard/main.go:1413> Starting AWS CloudWatch Monitor config=config.json rds_instances=1 log_groups=1 total_tabs=2

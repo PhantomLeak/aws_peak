@@ -1,0 +1,124 @@
+{
+  "autoDiscovery": {
+    "enabled": true,
+    "rdsInstances": {
+      "enabled": true,
+      "tags": {
+        "Environment": ["prod", "staging"],
+        "Application": ["web", "api"]
+      }
+    },
+    "logGroups": {
+      "enabled": true,
+      "Patterns": [
+        "/aws/lambda"
+      ]
+    }
+  },
+  "resources": {
+    "rdsInstances": [
+      {
+        "identifier": "vivliocdk-shared-rds",
+        "displayName": "Production DB",
+        "region": "us-east-2",
+        "enabled": true
+      }
+    ],
+    "logGroups": [
+      {
+        "name": "/aws/lambda-insights",
+        "displayName": "PreAuth Lambda",
+        "region": "us-east-2",
+        "enabled": true
+      }
+    ]
+  },
+  "bufferSize": 1000,
+  "intervals": {
+    "metricsUpdateSeconds": 30,
+    "logsUpdateSeconds": 5,
+    "metricLookbackMinutes": 5,
+    "discoveryIntervalMinutes": 15,
+    "configReloadSeconds": 60
+  },
+  "metricPeriodSeconds": 300,
+  "thresholds": {
+    "cpu": {
+      "warning": 50.0,
+      "critical": 80.0
+    },
+    "connections": {
+      "warning": 50.0,
+      "critical": 100.0
+    },
+    "iops": {
+      "warning": 500.0,
+      "critical": 1000.0
+    }
+  },
+  "metrics": [
+    {
+      "name": "CPUUtilization",
+      "namespace": "AWS/RDS",
+      "unit": "%",
+      "format": "%.2f"
+    },
+    {
+      "name": "DatabaseConnections",
+      "namespace": "AWS/RDS",
+      "unit": "count",
+      "format": "%.0f"
+    },
+    {
+      "name": "ReadIOPS",
+      "namespace": "AWS/RDS",
+      "unit": "count/sec",
+      "format": "%.0f"
+    },
+    {
+      "name": "WriteIOPS",
+      "namespace": "AWS/RDS",
+      "unit": "count/sec",
+      "format": "%.0f"
+    },
+    {
+      "name": "FreeableMemory",
+      "namespace": "AWS/RDS",
+      "unit": "bytes",
+      "format": "%.0f"
+    }
+  ],
+  "logging": {
+    "level": "info",
+    "format": "text",
+    "output": "file",
+    "file": {
+      "path": "aws-monitor.log",
+      "maxSize": "10MB",
+      "maxBackups": 5,
+      "compress": true
+    },
+    "console": {
+      "enabled": true,
+      "colorize": true
+    }
+  },
+  "ui": {
+    "colors": {
+      "enabled": true,
+      "theme": "default"
+    },
+    "refreshKeys": ["r", "F5"],
+    "quitKeys": ["q", "Ctrl+C"],
+    "navigation": {
+      "nextTab": ["Tab", "Ctrl+Right"],
+      "prevTab": ["Shift+Tab", "Ctrl+Left"],
+      "switchView": ["Space"]
+    },
+    "layout": {
+      "showTabs": true,
+      "showStatus": true,
+      "splitRatio": 0.5
+    }
+  }
+}
