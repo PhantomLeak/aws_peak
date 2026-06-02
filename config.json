@@ -10,24 +10,34 @@
     },
     "logGroups": {
       "enabled": true,
-      "Patterns": [
-        "/aws/lambda"
-      ]
+      "Patterns": []
     }
   },
   "resources": {
     "rdsInstances": [
       {
-        "identifier": "identifier here",
-        "displayName": "Production DB",
+        "identifier": "vivliocdk-shared-rds",
+        "displayName": "dev DB",
         "region": "us-east-2",
         "enabled": true
       }
     ],
     "logGroups": [
       {
-        "name": "logGroup here",
-        "displayName": "Log Group Name",
+        "name": "/aws/lambda/vivlioSLS-dev-hint-sso-token-exchange",
+        "displayName": "Hint SSO",
+        "region": "us-east-2",
+        "enabled": true
+      },
+      {
+        "name": "/aws/lambda/vivlioSLS-dev-hint-webhook-handler",
+        "displayName": "Hint Webhook handler",
+        "region": "us-east-2",
+        "enabled": true
+      },
+      {
+        "name": "/aws/lambda/vivlioSLS-dev-hint-backfill-patient-worker",
+        "displayName": "Hint Patient Backfill",
         "region": "us-east-2",
         "enabled": true
       }
@@ -111,8 +121,8 @@
     "refreshKeys": ["r", "F5"],
     "quitKeys": ["q", "Ctrl+C"],
     "navigation": {
-      "nextTab": ["Tab", "Ctrl+Right"],
-      "prevTab": ["Shift+Tab", "Ctrl+Left"],
+      "nextTab": ["Tab", "Ctrl+Right", "l"],
+      "prevTab": ["Shift+Tab", "Ctrl+Left", "h"],
       "switchView": ["Space"]
     },
     "layout": {
