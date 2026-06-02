@@ -1233,31 +1233,17 @@ func (app *MonitoringApp) setupKeybindings() error {
 		return err
 	}
 	
-	// Log navigation
-	if err := app.gui.SetKeybinding("logs", gocui.KeyArrowUp, gocui.ModNone, app.scrollLogsUp); err != nil {
+	// Log navigation (global keybindings)
+	if err := app.gui.SetKeybinding("", gocui.KeyArrowUp, gocui.ModNone, app.scrollLogsUp); err != nil {
 		return err
 	}
-	if err := app.gui.SetKeybinding("logs", gocui.KeyArrowDown, gocui.ModNone, app.scrollLogsDown); err != nil {
+	if err := app.gui.SetKeybinding("", gocui.KeyArrowDown, gocui.ModNone, app.scrollLogsDown); err != nil {
 		return err
 	}
-	if err := app.gui.SetKeybinding("logs", gocui.KeyPgup, gocui.ModNone, app.pageLogsUp); err != nil {
+	if err := app.gui.SetKeybinding("", gocui.KeyPgup, gocui.ModNone, app.pageLogsUp); err != nil {
 		return err
 	}
-	if err := app.gui.SetKeybinding("logs", gocui.KeyPgdn, gocui.ModNone, app.pageLogsDown); err != nil {
-		return err
-	}
-
-	// Error panel navigation
-	if err := app.gui.SetKeybinding("errors", gocui.KeyArrowUp, gocui.ModNone, app.scrollErrorsUp); err != nil {
-		return err
-	}
-	if err := app.gui.SetKeybinding("errors", gocui.KeyArrowDown, gocui.ModNone, app.scrollErrorsDown); err != nil {
-		return err
-	}
-	if err := app.gui.SetKeybinding("errors", gocui.KeyPgup, gocui.ModNone, app.pageErrorsUp); err != nil {
-		return err
-	}
-	if err := app.gui.SetKeybinding("errors", gocui.KeyPgdn, gocui.ModNone, app.pageErrorsDown); err != nil {
+	if err := app.gui.SetKeybinding("", gocui.KeyPgdn, gocui.ModNone, app.pageLogsDown); err != nil {
 		return err
 	}
 	
@@ -1368,8 +1354,10 @@ func (app *MonitoringApp) scrollLogsDown(g *gocui.Gui, v *gocui.View) error {
 	if tab != nil {
 		if v, err := app.gui.View("logs"); err == nil {
 			_, height := v.Size()
+			summaryLines := 3
+			availableHeight := height - summaryLines
 			tab.LogOffset++
-			maxOffset := len(tab.LogBuffer) - (height - 1)
+			maxOffset := len(tab.LogBuffer) - availableHeight
 			if maxOffset < 0 {
 				maxOffset = 0
 			}
@@ -1387,7 +1375,9 @@ func (app *MonitoringApp) pageLogsUp(g *gocui.Gui, v *gocui.View) error {
 	if tab != nil {
 		if v, err := app.gui.View("logs"); err == nil {
 			_, height := v.Size()
-			tab.LogOffset -= height - 1
+			summaryLines := 3
+			availableHeight := height - summaryLines
+			tab.LogOffset -= availableHeight
 			if tab.LogOffset < 0 {
 				tab.LogOffset = 0
 			}
@@ -1402,8 +1392,10 @@ func (app *MonitoringApp) pageLogsDown(g *gocui.Gui, v *gocui.View) error {
 	if tab != nil {
 		if v, err := app.gui.View("logs"); err == nil {
 			_, height := v.Size()
-			tab.LogOffset += height - 1
-			maxOffset := len(tab.LogBuffer) - (height - 1)
+			summaryLines := 3
+			availableHeight := height - summaryLines
+			tab.LogOffset += availableHeight
+			maxOffset := len(tab.LogBuffer) - availableHeight
 			if maxOffset < 0 {
 				maxOffset = 0
 			}
