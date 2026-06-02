@@ -1,0 +1,9 @@
+config.json
+aws-monitor
+aws-monitor.log
+.idea
+.env
+.env.local
+*.swp
+*.swo
+*~

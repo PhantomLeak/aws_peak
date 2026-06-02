@@ -164,6 +164,13 @@ type ResourceTab struct {
 	LogOffset   int
 	LastToken   *string
 	Active      bool
+	ErrorCount  int
+	WarnCount   int
+	InfoCount   int
+	DebugCount  int
+	OtherCount  int
+	Errors      []LogEvent
+	ErrorOffset int
 }
 
 // LogEvent represents a formatted log event
@@ -406,6 +413,13 @@ func (app *MonitoringApp) initializeTabs() error {
 				LogBuffer:   make([]LogEvent, 0, app.config.BufferSize),
 				LogOffset:   0,
 				Active:      len(app.tabs) == 0, // First tab is active if no databases tab
+				ErrorCount:  0,
+				WarnCount:   0,
+				InfoCount:   0,
+				DebugCount:  0,
+				OtherCount:  0,
+				Errors:      make([]LogEvent, 0, app.config.BufferSize),
+				ErrorOffset: 0,
 			}
 			app.tabs = append(app.tabs, tab)
 		}
@@ -507,6 +521,13 @@ func (app *MonitoringApp) discoverResources() error {
 						Resource:    lg,
 						LogBuffer:   make([]LogEvent, 0, app.config.BufferSize),
 						LogOffset:   0,
+						ErrorCount:  0,
+						WarnCount:   0,
+						InfoCount:   0,
+						DebugCount:  0,
+						OtherCount:  0,
+						Errors:      make([]LogEvent, 0, app.config.BufferSize),
+						ErrorOffset: 0,
 					}
 					newTabs = append(newTabs, tab)
 				}
@@ -873,7 +894,12 @@ func (app *MonitoringApp) fetchLogEventsForTab(tab *ResourceTab) error {
 			Message:   aws.ToString(event.Message),
 		}
 		logEvent.Formatted = app.formatLogEvent(logEvent)
+		level := app.getLogLevel(logEvent.Message)
+		app.incrementLogCount(tab, level)
 		app.addLogEventToTab(tab, logEvent)
+		if level == "ERROR" {
+			app.addErrorToTab(tab, logEvent)
+		}
 	}
 
 	tab.LastToken = output.NextToken
@@ -896,8 +922,58 @@ func (app *MonitoringApp) formatLogEvent(event LogEvent) string {
 	} else if strings.Contains(upperMessage, "DEBUG") {
 		return fmt.Sprintf("[%s] %s", timestamp, app.colorize(ColorBlue, message))
 	}
-	
+
 	return fmt.Sprintf("[%s] %s", timestamp, message)
+}
+
+// getLogLevel extracts the log level from a message
+func (app *MonitoringApp) getLogLevel(message string) string {
+	upperMessage := strings.ToUpper(message)
+	if strings.Contains(upperMessage, "ERROR") || strings.Contains(upperMessage, "FATAL") {
+		return "ERROR"
+	} else if strings.Contains(upperMessage, "WARN") {
+		return "WARN"
+	} else if strings.Contains(upperMessage, "INFO") {
+		return "INFO"
+	} else if strings.Contains(upperMessage, "DEBUG") {
+		return "DEBUG"
+	}
+	return "OTHER"
+}
+
+// incrementLogCount increments the appropriate counter for a log level
+func (app *MonitoringApp) incrementLogCount(tab *ResourceTab, level string) {
+	switch level {
+	case "ERROR":
+		tab.ErrorCount++
+	case "WARN":
+		tab.WarnCount++
+	case "INFO":
+		tab.InfoCount++
+	case "DEBUG":
+		tab.DebugCount++
+	default:
+		tab.OtherCount++
+	}
+}
+
+// formatLogSummary creates a summary header with log counts
+func (app *MonitoringApp) formatLogSummary(tab *ResourceTab) string {
+	var sb strings.Builder
+
+	successCount := tab.InfoCount + tab.DebugCount
+	errorCount := tab.ErrorCount
+	warnCount := tab.WarnCount
+
+	sb.WriteString(app.colorize(ColorCyan, "═══════════════════════════════════════\n"))
+	sb.WriteString(fmt.Sprintf("  %s  |  %s  |  %s  |  %s\n",
+		app.colorize(ColorGreen, fmt.Sprintf("✓ Success: %d", successCount)),
+		app.colorize(ColorYellow, fmt.Sprintf("⚠ Warnings: %d", warnCount)),
+		app.colorize(ColorRed, fmt.Sprintf("✗ Errors: %d", errorCount)),
+		fmt.Sprintf("Other: %d", tab.OtherCount)))
+	sb.WriteString(app.colorize(ColorCyan, "═══════════════════════════════════════\n\n"))
+
+	return sb.String()
 }
 
 // addLogEventToTab adds a new log event to a specific tab's buffer
@@ -905,6 +981,14 @@ func (app *MonitoringApp) addLogEventToTab(tab *ResourceTab, event LogEvent) {
 	tab.LogBuffer = append(tab.LogBuffer, event)
 	if len(tab.LogBuffer) > app.config.BufferSize {
 		tab.LogBuffer = tab.LogBuffer[1:]
+	}
+}
+
+// addErrorToTab adds an error event to the errors buffer
+func (app *MonitoringApp) addErrorToTab(tab *ResourceTab, event LogEvent) {
+	tab.Errors = append(tab.Errors, event)
+	if len(tab.Errors) > app.config.BufferSize {
+		tab.Errors = tab.Errors[1:]
 	}
 }
 
@@ -919,50 +1003,94 @@ func (app *MonitoringApp) updateMetricsView() {
 	})
 }
 
-// updateLogsView refreshes the logs display
+// updateLogsView refreshes the logs display and errors panel
 func (app *MonitoringApp) updateLogsView() {
 	app.gui.Update(func(gui *gocui.Gui) error {
+		tab := app.getCurrentTab()
+		if tab == nil {
+			return nil
+		}
+
+		// Update logs view
 		if v, err := gui.View("logs"); err == nil {
 			v.Clear()
-			tab := app.getCurrentTab()
-			if tab != nil {
-				_, height := v.Size()
-				
-				start := tab.LogOffset
-				if start < 0 {
-					start = 0
-				}
-				
-				end := start + height - 1
-				if end > len(tab.LogBuffer) {
-					end = len(tab.LogBuffer)
-				}
-				
-				for i := start; i < end && i < len(tab.LogBuffer); i++ {
-					fmt.Fprintln(v, tab.LogBuffer[i].Formatted)
-				}
-				
-				// Show scroll indicator
-				if len(tab.LogBuffer) > height-1 {
-					scrollInfo := fmt.Sprintf(" [%d/%d] ", start+1, len(tab.LogBuffer))
-					if v.Title != "" {
-						parts := strings.Split(v.Title, " [")
-						baseTitle := parts[0]
-						
-						// Add clickable indicator for log groups
-						if tab.Type == "logs" {
-							if lgConfig, ok := tab.Resource.(LogGroupConfig); ok {
-								baseTitle = fmt.Sprintf(" CloudWatch Logs - %s ", 
-									app.colorize(ColorLink, lgConfig.DisplayName))
-								baseTitle += " [click to open in AWS Console]"
-							}
+			_, height := v.Size()
+
+			// Print summary header first
+			fmt.Fprint(v, app.formatLogSummary(tab))
+
+			// Account for summary in height calculation
+			summaryLines := 3
+			availableHeight := height - summaryLines
+
+			start := tab.LogOffset
+			if start < 0 {
+				start = 0
+			}
+
+			end := start + availableHeight
+			if end > len(tab.LogBuffer) {
+				end = len(tab.LogBuffer)
+			}
+
+			for i := start; i < end && i < len(tab.LogBuffer); i++ {
+				fmt.Fprintln(v, tab.LogBuffer[i].Formatted)
+			}
+
+			// Show scroll indicator
+			if len(tab.LogBuffer) > availableHeight {
+				scrollInfo := fmt.Sprintf(" [%d/%d] ", start+1, len(tab.LogBuffer))
+				if v.Title != "" {
+					parts := strings.Split(v.Title, " [")
+					baseTitle := parts[0]
+
+					// Add clickable indicator for log groups
+					if tab.Type == "logs" {
+						if lgConfig, ok := tab.Resource.(LogGroupConfig); ok {
+							baseTitle = fmt.Sprintf(" CloudWatch Logs - %s ",
+								app.colorize(ColorLink, lgConfig.DisplayName))
+							baseTitle += " [click to open in AWS Console]"
 						}
-						
-						v.Title = baseTitle + app.colorize(ColorCyan, scrollInfo)
 					}
+
+					v.Title = baseTitle + app.colorize(ColorCyan, scrollInfo)
 				}
 			}
 		}
+
+		// Update errors view if we're on a logs tab
+		if tab.Type == "logs" {
+			if v, err := gui.View("errors"); err == nil {
+				v.Clear()
+				_, height := v.Size()
+
+				start := tab.ErrorOffset
+				if start < 0 {
+					start = 0
+				}
+
+				end := start + height
+				if end > len(tab.Errors) {
+					end = len(tab.Errors)
+				}
+
+				if len(tab.Errors) == 0 {
+					fmt.Fprint(v, app.colorize(ColorGreen, "No errors"))
+				} else {
+					for i := start; i < end && i < len(tab.Errors); i++ {
+						fmt.Fprintln(v, tab.Errors[i].Formatted)
+					}
+				}
+
+				// Show error count in title
+				v.Title = fmt.Sprintf(" Errors [%d] ", len(tab.Errors))
+				if len(tab.Errors) > height {
+					scrollInfo := fmt.Sprintf(" [%d/%d] ", start+1, len(tab.Errors))
+					v.Title = fmt.Sprintf(" Errors [%d] %s", len(tab.Errors), app.colorize(ColorCyan, scrollInfo))
+				}
+			}
+		}
+
 		return nil
 	})
 }
@@ -1035,8 +1163,22 @@ func (app *MonitoringApp) layout(g *gocui.Gui) error {
 			v.Frame = true
 		}
 	} else if tab.Type == "logs" {
-		// Full width logs view for log groups
-		if v, err := g.SetView("logs", 0, tabHeight, maxX-1, maxY-1); err != nil {
+		// Split view: errors on left, logs on right
+		errorsWidth := int(float64(maxX) * 0.3)
+
+		// Errors view (left side)
+		if v, err := g.SetView("errors", 0, tabHeight, errorsWidth-1, maxY-1); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			v.Title = " Errors "
+			v.Wrap = true
+			v.Frame = true
+			v.Autoscroll = false
+		}
+
+		// Logs view (right side)
+		if v, err := g.SetView("logs", errorsWidth, tabHeight, maxX-1, maxY-1); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
@@ -1102,6 +1244,20 @@ func (app *MonitoringApp) setupKeybindings() error {
 		return err
 	}
 	if err := app.gui.SetKeybinding("logs", gocui.KeyPgdn, gocui.ModNone, app.pageLogsDown); err != nil {
+		return err
+	}
+
+	// Error panel navigation
+	if err := app.gui.SetKeybinding("errors", gocui.KeyArrowUp, gocui.ModNone, app.scrollErrorsUp); err != nil {
+		return err
+	}
+	if err := app.gui.SetKeybinding("errors", gocui.KeyArrowDown, gocui.ModNone, app.scrollErrorsDown); err != nil {
+		return err
+	}
+	if err := app.gui.SetKeybinding("errors", gocui.KeyPgup, gocui.ModNone, app.pageErrorsUp); err != nil {
+		return err
+	}
+	if err := app.gui.SetKeybinding("errors", gocui.KeyPgdn, gocui.ModNone, app.pageErrorsDown); err != nil {
 		return err
 	}
 	
@@ -1253,6 +1409,71 @@ func (app *MonitoringApp) pageLogsDown(g *gocui.Gui, v *gocui.View) error {
 			}
 			if tab.LogOffset > maxOffset {
 				tab.LogOffset = maxOffset
+			}
+		}
+		app.updateLogsView()
+	}
+	return nil
+}
+
+func (app *MonitoringApp) scrollErrorsUp(g *gocui.Gui, v *gocui.View) error {
+	tab := app.getCurrentTab()
+	if tab != nil {
+		tab.ErrorOffset--
+		if tab.ErrorOffset < 0 {
+			tab.ErrorOffset = 0
+		}
+		app.updateLogsView()
+	}
+	return nil
+}
+
+func (app *MonitoringApp) scrollErrorsDown(g *gocui.Gui, v *gocui.View) error {
+	tab := app.getCurrentTab()
+	if tab != nil {
+		if v, err := app.gui.View("errors"); err == nil {
+			_, height := v.Size()
+			tab.ErrorOffset++
+			maxOffset := len(tab.Errors) - height
+			if maxOffset < 0 {
+				maxOffset = 0
+			}
+			if tab.ErrorOffset > maxOffset {
+				tab.ErrorOffset = maxOffset
+			}
+		}
+		app.updateLogsView()
+	}
+	return nil
+}
+
+func (app *MonitoringApp) pageErrorsUp(g *gocui.Gui, v *gocui.View) error {
+	tab := app.getCurrentTab()
+	if tab != nil {
+		if v, err := app.gui.View("errors"); err == nil {
+			_, height := v.Size()
+			tab.ErrorOffset -= height
+			if tab.ErrorOffset < 0 {
+				tab.ErrorOffset = 0
+			}
+		}
+		app.updateLogsView()
+	}
+	return nil
+}
+
+func (app *MonitoringApp) pageErrorsDown(g *gocui.Gui, v *gocui.View) error {
+	tab := app.getCurrentTab()
+	if tab != nil {
+		if v, err := app.gui.View("errors"); err == nil {
+			_, height := v.Size()
+			tab.ErrorOffset += height
+			maxOffset := len(tab.Errors) - height
+			if maxOffset < 0 {
+				maxOffset = 0
+			}
+			if tab.ErrorOffset > maxOffset {
+				tab.ErrorOffset = maxOffset
 			}
 		}
 		app.updateLogsView()
